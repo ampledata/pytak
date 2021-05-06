@@ -4,13 +4,16 @@
 """PyTAK Functions."""
 
 import asyncio
+import datetime
 import os
 import socket
 import ssl
+import xml
+import xml.etree.ElementTree
 
-import asyncio_dgram
 
 import pytak
+import pytak.asyncio_dgram
 
 __author__ = "Greg Albrecht W2GMD <oss@undef.net>"
 __copyright__ = "Copyright 2021 Orion Labs, Inc."
@@ -47,7 +50,7 @@ def parse_cot_url(url) -> tuple:
 async def udp_client(url):
     """Create a CoT UDP Network Client"""
     host, port = parse_cot_url(url)
-    stream = await asyncio_dgram.connect((host, port))
+    stream = await pytak.asyncio_dgram.connect((host, port))
     if "broadcast" in url.scheme:
         sock = stream.socket
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -58,7 +61,7 @@ async def udp_client(url):
 async def multicast_client(url):
     """Create a CoT Multicast Network Client."""
     host, port = parse_cot_url(url)
-    stream = await asyncio_dgram.bind((host, port))
+    stream = await pytak.asyncio_dgram.bind((host, port))
     sock = stream.socket
     # group = socket.inet_aton(host)
     # mreq = struct.pack('4sL', group, socket.INADDR_ANY)
@@ -239,3 +242,19 @@ def faa_to_cot_type(icao_hex: int, category: str = None,
 
     return cot_type
 
+
+def hello_event(uid="pytak") -> str:
+    """Generates a Hello CoT Event."""
+    time = datetime.datetime.now(datetime.timezone.utc)
+
+    root = xml.etree.ElementTree.Element("event")
+
+    root.set("version", "2.0")
+    root.set("type", "t-x-d-d")
+    root.set("uid", uid)
+    root.set("how", "m-g")
+    root.set("time", time.strftime(pytak.ISO_8601_UTC))
+    root.set("start", time.strftime(pytak.ISO_8601_UTC))
+    root.set("stale", (time + datetime.timedelta(hours=1)).strftime(pytak.ISO_8601_UTC) )
+
+    return xml.etree.ElementTree.tostring(root)
